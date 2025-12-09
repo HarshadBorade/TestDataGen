@@ -1,6 +1,6 @@
 # Dockerfile for TestDataGen (Python + sqlite3 + faker)
 # Uses a slim Python base, installs requirements, fixes CRLF if present,
-# and runs Main.py (adjust CMD if you prefer SQL3.py or another file).
+# and runs Main.py (adjust CMD if you prefer SQL3.py or another file)
 
 FROM python:3.11-slim
 
