@@ -169,6 +169,10 @@ def run_web():
             "<p>Example: /generate?entity=A&multi=true&count=10</p>"
         )
 
+    @app.route("/health")
+    def health():
+        return "OK", 200
+
     @app.route("/generate")
     def generate():
         entity = request.args.get("entity", "A")
