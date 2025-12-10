@@ -2,6 +2,7 @@
 import argparse
 import sqlite3
 from faker import Faker
+from flask import Flask, request   # NEW: Flask for web mode
 
 from Users import (
     create_user,
@@ -30,7 +31,7 @@ from Products import (
     select_products,
 )
 
-TD = Faker("en_GB")  # this can be set to other languages see docs for more info
+TD = Faker("en_GB")
 
 
 def dbinit():
@@ -88,62 +89,40 @@ def print_title(title: str):
 
 
 def run_read(entity: str):
-    """
-    entity: C, U, PA, PR, A
-    """
     entity = entity.upper()
     if entity == "C":
-        print("Selecting customers")
         select_customers()
     elif entity == "U":
-        print("Selecting users")
         select_users()
     elif entity == "PA":
-        print("Selecting parts")
         select_parts()
     elif entity == "PR":
-        print("Selecting products")
         select_products()
     elif entity == "A":
         dbinit()
-
         print_title("Customers")
         select_customers()
-
         print_title("Users")
         select_users()
-
         print_title("Parts")
         select_parts()
-
         print_title("Products")
         select_products()
-
-        print_title("All info selected")
     else:
         raise ValueError(f"Unsupported entity for read: {entity}")
 
 
 def run_write(entity: str, multi: bool, count: int):
-    """
-    entity: C, U, PA, PR, A
-    multi: whether to create multiple records
-    count: number of records when multi is True
-    """
     entity = entity.upper()
 
-    # Ensure DB exists
     dbinit()
 
     if entity == "A":
-        # For "All", we just use count for all multi-create calls when multi=True.
         if multi:
-            print(f"Creating {count} of each: users, parts, products (clothes)")
             multi_create_product_clothes(count)
             multi_create_users(count)
             multi_create_parts(count)
         else:
-            print("Creating single records for users/parts/products (clothes)")
             create_product_clothes()
             create_user()
             create_part()
@@ -151,90 +130,100 @@ def run_write(entity: str, multi: bool, count: int):
 
     if entity == "C":
         if multi:
-            print(f"Creating {count} customers")
             multi_create_customers(count)
         else:
-            print("Creating single customer")
             create_customer()
 
     elif entity == "U":
         if multi:
-            print(f"Creating {count} users")
             multi_create_users(count)
         else:
-            print("Creating single user")
             create_user()
 
     elif entity == "PA":
         if multi:
-            print(f"Creating {count} parts")
             multi_create_parts(count)
         else:
-            print("Creating single part")
             create_part()
 
     elif entity == "PR":
-        # Here I assume you mainly want clothes; you can extend this to shoes/bedding/towels
         if multi:
-            print(f"Creating {count} product clothes")
             multi_create_product_clothes(count)
         else:
-            print("Creating single product clothes")
             create_product_clothes()
     else:
         raise ValueError(f"Unsupported entity for write: {entity}")
 
 
+# ------------------------------------------------------
+# NEW: Minimal Web UI / API
+# ------------------------------------------------------
+def run_web():
+    app = Flask(__name__)
+
+    @app.route("/")
+    def home():
+        return (
+            "<h2>TestDataGen Web Interface</h2>"
+            "<p>Use /generate or /read</p>"
+            "<p>Example: /generate?entity=A&multi=true&count=10</p>"
+        )
+
+    @app.route("/generate")
+    def generate():
+        entity = request.args.get("entity", "A")
+        multi_str = request.args.get("multi", "false")
+        count = int(request.args.get("count", "10"))
+        multi = multi_str.lower() in ("true", "1", "yes", "y")
+
+        run_write(entity, multi, count)
+        return f"Generated data: entity={entity}, multi={multi}, count={count}"
+
+    @app.route("/read")
+    def read():
+        entity = request.args.get("entity", "A")
+        run_read(entity)
+        return f"Read entity={entity}. Check logs."
+
+    print("Starting Web Server at http://localhost:5000 ...")
+    app.run(host="0.0.0.0", port=5000)
+
+
+# ------------------------------------------------------
+# Argument Parser (supports normal + web mode)
+# ------------------------------------------------------
 def parse_args():
-    parser = argparse.ArgumentParser(
-        description="Test data generator (non-interactive mode for ECS)"
-    )
-    parser.add_argument(
-        "--mode",
-        "-m",
-        choices=["R", "W"],
-        required=False,
-        default="W",  # default: WRITE mode
-        help="R = READ, W = WRITE (default: W)",
-    )
-    parser.add_argument(
-        "--entity",
-        "-e",
-        choices=["C", "U", "PA", "PR", "A"],
-        required=False,
-        default="A",  # default: All entities
-        help="C=Customers, U=Users, PA=Parts, PR=Products, A=All (default: A)",
-    )
-    parser.add_argument(
-        "--multi",
-        "-M",
-        action="store_true",
-        help="For WRITE mode: create multiple records (default: False)",
-    )
-    parser.add_argument(
-        "--count",
-        "-c",
-        type=int,
-        default=10,  # default number of records when multi is used
-        help="Number of records to create when using --multi (default: 10)",
-    )
+    parser = argparse.ArgumentParser(description="Test Data Generator")
+
+    parser.add_argument("--web", action="store_true",
+                        help="Start web interface on port 5000")
+
+    parser.add_argument("--mode", "-m", choices=["R", "W"],
+                        required=False, default="W")
+
+    parser.add_argument("--entity", "-e",
+                        choices=["C", "U", "PA, PR", "A"],
+                        required=False, default="A")
+
+    parser.add_argument("--multi", "-M", action="store_true")
+    parser.add_argument("--count", "-c", type=int, default=10)
+
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
 
+    if args.web:
+        run_web()
+        return
+
     mode = args.mode.upper()
     entity = args.entity.upper()
 
     if mode == "R":
-        print(f"Running READ for entity {entity}")
         run_read(entity)
     elif mode == "W":
-        print(
-            f"Running WRITE for entity {entity} "
-            f"(multi={args.multi}, count={args.count})"
-        )
         run_write(entity, args.multi, args.count)
     else:
         raise ValueError(f"Unsupported mode: {mode}")
