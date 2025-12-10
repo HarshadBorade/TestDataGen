@@ -46,4 +46,4 @@ VOLUME ["/data"]
 ENV DATA_DIR=/data
 
 # Default command – ECS will use this when "command" is empty in task definition
-CMD ["python", "-u", "Main.py"]
+CMD ["python", "-u", "Main.py", "--web"]
