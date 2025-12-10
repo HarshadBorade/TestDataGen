@@ -47,6 +47,8 @@ RUN if [ -f requirements.txt ]; then \
 RUN useradd --create-home appuser || true
 RUN mkdir -p /data && chown -R appuser:appuser /data ${APP_HOME}
 USER appuser
+EXPOSE 80
+Expose 5000
 
 # Default working directory and exposed volume for sqlite DB / exports
 VOLUME ["/data"]
