@@ -23,13 +23,15 @@ RUN find ${APP_HOME} -type f -name "*.py" -exec sed -i 's/\r$//' {} \; \
  && find ${APP_HOME} -type f -name "*.sh" -exec sed -i 's/\r$//' {} \; \
  && chmod +x ${APP_HOME}/*.sh || true
 
-# Install Python requirements if present
+# Install Python requirements (must include Flask)
+# requirements.txt should contain at least: Flask, faker, etc.
 RUN if [ -f requirements.txt ]; then \
       python -m pip install --no-cache-dir --upgrade pip && \
       python -m pip install --no-cache-dir -r requirements.txt ; \
     else \
       python -m pip install --no-cache-dir --upgrade pip && \
-      echo "No requirements.txt found; continuing without pip installs"; \
+      python -m pip install --no-cache-dir Flask && \
+      echo "No requirements.txt found; installed Flask only"; \
     fi
 
 # Optional: non-root user
@@ -37,13 +39,11 @@ RUN useradd --create-home appuser || true
 RUN mkdir -p /data && chown -R appuser:appuser /data ${APP_HOME}
 USER appuser
 
-# For batch job you do NOT need any exposed ports
-# (remove EXPOSE completely or keep only if you later add a web server)
-# EXPOSE 80
-# EXPOSE 5000
+# Web server listens on 5000
+EXPOSE 5000
 
 VOLUME ["/data"]
 ENV DATA_DIR=/data
 
-# Default command – ECS will use this when "command" is empty in task definition
+# Start app in web mode
 CMD ["python", "-u", "Main.py", "--web"]
